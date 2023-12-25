@@ -1,137 +1,103 @@
-#include "Snake.h"
 #include "Utils.h"
+#include <stdexcept>
+#include "Snake.h"
 
-void
-Snake::move_up()
+Snake::Snake()
 {
-	/*
-	 * Decrement head y index, remove_tail();
-	*/
-
-	COORD new_head = get_head();
-
-	new_head.y--;
-
-
-	set_new_head(new_head);
-	remove_tail();
-
-	this->head_direction = GoingUp;
+	this->len = def_len;
+	this->current_direction = def_direction;
+	create_body(def_start);
 }
 
-void
-Snake::move_down()
+Snake::Snake(Vec start, short len, Direction direction)
 {
-	/*
-	 * Increment head y index, remove_tail();
-	*/
-
-	COORD new_head = get_head();
-
-	new_head.y++;
-
-
-	set_new_head(new_head);
-
-	remove_tail();
-
-	this->head_direction = GoingDown;
+	this->len = len;
+	this->current_direction = direction;
+	create_body(start);
 }
 
-void
-Snake::move_left()
-{
-
-	/*
-	 * Decrement head x index, remove_tail();
-	*/
-
-	COORD new_head = get_head();
-
-	new_head.x--;
-
-
-	set_new_head(new_head);
-
-	remove_tail();
-
-	this->head_direction = GoingLeft;
-
-}
-
-void
-Snake::move_right()
-{
-
-	/*
-	 * Increment head x index, remove_tail();
-	*/
-
-	COORD new_head = get_head();
-
-	new_head.x++;
-
-
-	set_new_head(new_head);
-
-	remove_tail();
-	this->head_direction = GoingRight;
-}
-
-bool
-Snake::coord_valid(COORD coord) {
-	if (coord.y < 0 || coord.x < 0) return false;
-	return true;
-}
-
-void
-Snake::set_new_head(COORD nw_head)
-{
-	this->body.insert(this->body.begin(), 1, nw_head);
-}
-
-void
-Snake::add_new_tail(COORD nw_tail)
-{
-	this->body.insert(this->body.end(), 1, nw_tail);
-}
-
-
-COORD
+Vec
 Snake::get_head()
 {
-	return this->body.front();
+	return bmap.back();
 }
 
 void
-Snake::remove_tail()
+Snake::nw_head(Vec new_head)
 {
-	this->body.erase(this->body.end()-1);
+	bmap.push_back(new_head);
 }
 
 void
-Snake::grow_snake(COORD food_coord)
+Snake::rm_tail()
 {
-	set_new_head(food_coord);
+	bmap.pop_front();
 }
 
-size_t
-Snake::snake_len()
+void
+Snake::create_body(Vec start)
 {
-	return (this->body.size()) - this->min_len;
+	nw_head(start);
+	for(short i=0; i < len; i++, nw_head(start))
+	{
+		if (start < Vec{0, 0})
+			throw std::out_of_range("Snake::create_body():OUT OF RANGE\n"); // TODO: error checking
+
+		switch(current_direction)
+		{
+			case Up:
+				start.y--;
+				break;
+			case Down:
+				start.y++;
+				break;
+			case Left:
+				start.x--;
+				break;
+			case Right:
+				start.x++;
+				break;
+		}
+
+	}
 }
 
-vector<COORD>
-Snake::get_snake_body()
+void
+Snake::grow_snake()
 {
-	return this->body;
+	Vec head = get_head();
+	switch(current_direction)
+	{
+		case Up:
+			head.y--;
+			break;
+		case Down:
+			head.y++;
+			break;
+		case Left:
+			head.x--;
+			break;
+		case Right:
+			head.x++;
+			break;
+	}
+	nw_head(head);
 }
 
-
-Snake::Snake(vector<COORD> initial_coords, Direction starting_direction)
+void
+Snake::move_snake(Direction direction)
 {
-	for(auto coord : initial_coords)
-		add_new_tail(coord);
-	this->head_direction = starting_direction;
+	current_direction = direction;
+	grow_snake();
+	rm_tail();
+
+}
+
+void
+Snake::move_snake()
+{
+	grow_snake();
+	rm_tail();
+	len++;
 
 }

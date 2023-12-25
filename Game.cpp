@@ -1,178 +1,183 @@
+#include <curses.h>
+#include <ncurses.h>
+#include <stdexcept>
+#include "Curse.h"
+#include "Map.h"
+#include "Snake.h"
+#include "Food.h"
 #include "Game.h"
+#include "Utils.h"
 
-// set all cells on the map to empty
+Game::Game()
+{
+	this->food = new Food(Vec{25,10});
+	this->snake = new Snake({0,0}, 3, Direction::Down);
+	this->game_map = new Map(this->snake, this->food, Vec{25,10});
+	this->screen = new CurseWindow(Vec{25, 10});
+}
+
+Game::~Game()
+{
+	delete this->game_map;
+	delete this->food;
+	delete this->snake;
+	delete this->screen;
+}
+
+CollisionType
+Game::check_collision()
+{
+
+	if (snake->get_head() == food->coord)
+		return CollisionType::FoodCollision;
+
+	else if ((snake->get_head().x > game_map->size.x) || (snake->get_head().y > game_map->size.y)
+			|| (snake->get_head().x < 0 || snake->get_head().y < 0))
+		return CollisionType::BorderCollision;
+	else
+	{
+		auto it = snake->bmap.begin(); // skip the first index
+		for (; it != (--snake->bmap.end()) ; it++)
+		{
+			if (snake->get_head().y == it->y && snake->get_head().x == it->x)
+				return CollisionType::BodyCollision;
+		}
+	}
+
+	return CollisionType::NoCollision;
+}
+
 void
-Game::init_empty_map()
+Game::move_snake()
 {
-	for(size_t y=0; y < this->max_y; y++) {
-		vector <CellStatus> line;
-		for(size_t x=0; x < this->max_x; x++ )
-			line.push_back(CellEmpty);
-		this->Cells.push_back(line);
+	game_map->unset_snake();
+
+	switch(screen->get_keypress())
+	{
+		case KEY_UP:
+			if (snake->current_direction == Direction::Up
+					|| snake->current_direction == Direction::Down)
+				goto MOV;
+			snake->move_snake(Direction::Up);
+			goto SET;
+		case KEY_DOWN:
+			if (snake->current_direction == Direction::Down
+					|| snake->current_direction == Direction::Up )
+				goto MOV;
+			snake->move_snake(Direction::Down);
+			goto SET;
+		case KEY_LEFT:
+			if (snake->current_direction == Direction::Left
+					|| snake->current_direction == Direction::Right)
+				goto MOV;
+			snake->move_snake(Direction::Left);
+			goto SET;
+		case KEY_RIGHT:
+			if (snake->current_direction == Direction::Right
+					|| snake->current_direction == Direction::Left)
+				goto MOV;
+			snake->move_snake(Direction::Right);
+			goto SET;
+		default:
+			goto MOV;
 	}
+
+	MOV:
+		snake->move_snake();
+
+	SET:
+		game_map->set_snake();
 }
 
-// return a pointer to a cell in the map
-CellStatus*
-Game::get_cell(size_t x, size_t y)
-{
-	try {
-		return &this->Cells.at(y).at(x);
 
-	} catch (...) {
-
-		return nullptr;
-	}
-}
-
-// random number between 0, and max;
-size_t
-Game::rand_n(size_t max)
-{
-	// random number generator, from /dev/urandom. used for the seed.
-	std::random_device rd;
-
-	// >=c++11 32bit pseudo-random number generator.
-	std::mt19937 rng(rd());
-
-	// range of numbers between min & max.
-	std::uniform_int_distribution<size_t> uni(0,max);
-
-	return uni(rng);
-
-}
-
-// modify the food_present attribute
-// sets to false if no food is placed in the map, otherwise true
 void
-Game::check_snake_hit_food()
+Game::draw_map()
 {
-	if (this->food_coord.x == this->snake->get_head().x &&
-		this->food_coord.y == this->snake->get_head().y) {
-		this->snake->grow_snake(this->food_coord);
-		this->food_present = false;
+	screen->clear_screen();
+
+	int y = 0;
+	for(auto bits : game_map->bmap)
+	{
+		int x = 0;
+		for (auto bit : bits)
+		{
+			switch(bit)
+			{
+				case MapBitType::PlayerBit:
+					if (snake->get_head() == Vec{x,y})
+						screen->printout('O', Vec{x,y});
+					else
+						screen->printout('#', Vec{x,y});
+					break;
+				case MapBitType::FoodBit:
+					screen->printout('$', Vec{x,y});
+					break;
+				case MapBitType::EmptyBit:
+					screen->printout('~', Vec{x,y});
+					break;
+				default:
+					screen->printout('X', Vec{x,y});
+					break;
+			}
+			x++;
+		}
+		screen->refresh();
+		y++;
 	}
 }
 
-// place the food in a random empty cell on the map
-// or if already placed just replace it
 void
 Game::place_food()
 {
-	size_t x, y;
 
-	check_snake_hit_food();
+	while(true)
+	{
+		food->init();
 
-	try {
-		while(true) {
-			x = (food_present) ? food_coord.x : rand_n(this->max_x-1);
-			y = (food_present) ? food_coord.y : rand_n(this->max_y-1);
+		for(auto coord : snake->bmap)
+		{
+			if (food->coord == coord)
+				continue;
+		}
 
-			CellStatus* cell_ptr = get_cell(x,y);
-			if (cell_ptr != nullptr && *cell_ptr == CellEmpty) {
-				*cell_ptr = CellFood;
+		break;
+	}
+}
+
+void
+Game::run()
+{
+	bool run_game = true;
+	place_food();
+	game_map->update();
+
+	while(run_game)
+	{
+		screen->sleep(120);
+		draw_map();
+		move_snake();
+
+		switch (check_collision())
+		{
+			case FoodCollision:
+				game_map->unset_snake();
+				game_map->unset_food();
+				place_food();
+				snake->grow_snake();
+				game_map->set_snake();
+				game_map->set_food();
 				break;
-			}
-		}
-	} catch (...) {
-		throw (GameFoodPlacementFailed("place_food(): failed to place food"));
-	}
 
-	if (! food_present) {
-		food_coord.x = x;
-		food_coord.y = y;
-		food_present = true;
-	}
-}
-
-// place the snake on the game map
-void
-Game::place_snake()
-{
-	for ( COORD coord : this->snake->get_snake_body() ) {
-		CellStatus*  cell_ptr = get_cell(coord.x, coord.y);
-		if (cell_ptr != nullptr && *cell_ptr == CellEmpty) *cell_ptr = CellSnake;
-	}
-}
-
-// directly move the snake, without checking
-void
-Game::move_snake_to(Direction direction) {
-	switch (direction) {
-		case GoingRight:
-			this->snake->move_right();
-			break;
-		case GoingLeft:
-			this->snake->move_left();
-			break;
-		case GoingUp:
-			this->snake->move_up();
-			break;
-		case GoingDown:
-			this->snake->move_down();
-			break;
-	}
-	collision_detected();
-}
-
-// checks first the movement
-// a snake can only go left or right of his head
-void
-Game::move_snake(Direction move_to)
-{
-	Snake* snake = this->snake;
-
-	if (move_to == snake->head_direction)
-		return;
-	else if (move_to == GoingDown && snake->head_direction == GoingUp)
-		return;
-	else if (move_to == GoingUp && snake->head_direction == GoingDown)
-		return;
-	else if (move_to == GoingLeft && snake->head_direction == GoingRight)
-		return;
-	else if (move_to == GoingRight && snake->head_direction == GoingLeft)
-		return;
-
-	move_snake_to(move_to);
-}
-
-
-// detects any out of bounds movements
-// detects if snake hits it's body
-void
-Game::collision_detected()
-{
-	COORD snake_head = this->snake->get_head();
-	vector<COORD> snake_body = this->snake->get_snake_body();
-
-	if (snake_head.x < 0 || snake_head.y < 0)
-		throw SnakeIsDead("collision_detected(): snake is dead!");
-	else if (snake_head.x >= max_x || snake_head.y >= max_y)
-		throw SnakeIsDead("collision_detected(): snake is dead!");
-	else {
-		for(size_t i=1; i < snake_body.size(); i++) {
-			if (snake_head.x == snake_body.at(i).x && snake_head.y == snake_body.at(i).y)
-				throw SnakeIsDead("collision_detected(): snake is dead!");
+			case BodyCollision:
+			case BorderCollision:
+				run_game = false;
+				break;
+			case NoCollision:
+				continue;
+			default:
+				throw std::out_of_range("Game(): run(), check_collision(), uncaught error!");
+				break;
 		}
 	}
-}
 
-// resets the map
-void
-Game::reset_map() {
-	this->Cells.clear();
-	init_empty_map();
-	place_food();
-	place_snake();
-}
-
-Game::Game(size_t max_x, size_t max_y, Snake* snake)
-{
-	this->max_x = max_x;
-	this->max_y = max_y;
-	this->snake = snake;
-
-	init_empty_map();
-	place_food();
-	place_snake();
 }
