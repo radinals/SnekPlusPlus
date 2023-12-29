@@ -16,7 +16,6 @@ class Map
 		Vec size;
 
 	private:
-		Vec def_size {10,10}; // default is 10x10
 		Snake* snake;
 		Food* food;
 

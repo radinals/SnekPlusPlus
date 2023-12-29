@@ -12,7 +12,7 @@ class Snake
 		Direction current_direction;
 	private:
 		Direction def_direction = Direction::Right;
-		Vec def_start = {0,0};
+		Vec def_start;
 		short def_len = 3;
 		short len = 0;
 

@@ -14,7 +14,7 @@ class CurseWindow
 		WINDOW* win;
 		Vec winsize;
 		Vec termsize;
-		const Vec winstart {0, 0};
+		Vec winstart;
 	private:
 		void get_termsize();
 		void check_termsize();

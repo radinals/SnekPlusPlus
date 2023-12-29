@@ -7,15 +7,18 @@
 
 CurseWindow::CurseWindow(Vec win_size)
 {
-	initscr();
+	stdscr = initscr();
 
 	termsize.y = getmaxy(stdscr);
 	termsize.x = getmaxx(stdscr);
 
-	if ((win_size > termsize) || win_size <= winstart)
-		exit(-100); // TODO: ERORR
+	winstart.x = 0;
+	winstart.y = 0;
 
 	winsize = win_size;
+
+	if ((winsize > termsize) || winsize <= winstart)
+		exit(-100); // TODO: ERORR
 
 	this->win = newwin(winsize.y, winsize.x, winstart.x, winstart.y);
 

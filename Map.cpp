@@ -6,8 +6,11 @@ Map::Map(Snake* snake, Food* food)
 {
 	this->snake = snake;
 	this->food = food;
-	this->size = def_size;
-	init_map(def_size);
+
+	this->size.x = 10;
+	this->size.y = 10;
+
+	init_map(size);
 	set_snake();
 	set_food();
 }
@@ -17,6 +20,7 @@ Map::Map(Snake* snake, Food* food, Vec size)
 	this->snake = snake;
 	this->food = food;
 	this->size = size;
+
 	init_map(size);
 	set_snake();
 	set_food();

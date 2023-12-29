@@ -8,7 +8,7 @@ class Food
 	private:
 		Vec rand_coord();
 		int rand_range(int min, int max);
-		Vec max = {10, 10};
+		Vec max;
 
 	public:
 		Vec coord;

@@ -40,7 +40,7 @@ Snake::create_body(Vec start)
 	nw_head(start);
 	for(short i=0; i < len; i++, nw_head(start))
 	{
-		if (start < Vec{0, 0})
+		if (start.x < 0 || start.y < 0 )
 			throw std::out_of_range("Snake::create_body():OUT OF RANGE\n"); // TODO: error checking
 
 		switch(current_direction)

@@ -10,10 +10,19 @@
 
 Game::Game()
 {
-	this->food = new Food(Vec{25,10});
-	this->snake = new Snake({0,0}, 3, Direction::Down);
-	this->game_map = new Map(this->snake, this->food, Vec{25,10});
-	this->screen = new CurseWindow(Vec{25, 10});
+	Vec board_game_size;
+	Vec snake_start;
+
+	board_game_size.x = 25;
+	board_game_size.y = 10;
+
+	snake_start.x = 0;
+	snake_start.y = 0;
+
+	this->food = new Food(board_game_size);
+	this->snake = new Snake(snake_start, 3, Direction::Down);
+	this->game_map = new Map(this->snake, this->food, board_game_size);
+	this->screen = new CurseWindow(board_game_size);
 }
 
 Game::~Game()
@@ -28,21 +37,18 @@ CollisionType
 Game::check_collision()
 {
 
+	for (auto coord : snake->bmap)
+	{
+		// if (snake->get_head().y == coord.y && snake->get_head().x == coord.x)
+		// 	return CollisionType::BodyCollision;
+
+		if ((coord.x > game_map->size.x) || (coord.y > game_map->size.y)
+				|| (coord.x < 0 || coord.y < 0))
+			return CollisionType::BorderCollision;
+	}
+
 	if (snake->get_head() == food->coord)
 		return CollisionType::FoodCollision;
-
-	else if ((snake->get_head().x > game_map->size.x) || (snake->get_head().y > game_map->size.y)
-			|| (snake->get_head().x < 0 || snake->get_head().y < 0))
-		return CollisionType::BorderCollision;
-	else
-	{
-		auto it = snake->bmap.begin(); // skip the first index
-		for (; it != (--snake->bmap.end()) ; it++)
-		{
-			if (snake->get_head().y == it->y && snake->get_head().x == it->x)
-				return CollisionType::BodyCollision;
-		}
-	}
 
 	return CollisionType::NoCollision;
 }
@@ -101,22 +107,27 @@ Game::draw_map()
 		int x = 0;
 		for (auto bit : bits)
 		{
+			Vec coord;
+
+			coord.x = x;
+			coord.y = y;
+
 			switch(bit)
 			{
 				case MapBitType::PlayerBit:
-					if (snake->get_head() == Vec{x,y})
-						screen->printout('O', Vec{x,y});
+					if (snake->get_head() == coord)
+						screen->printout('O', coord);
 					else
-						screen->printout('#', Vec{x,y});
+						screen->printout('#', coord);
 					break;
 				case MapBitType::FoodBit:
-					screen->printout('$', Vec{x,y});
+					screen->printout('$', coord);
 					break;
 				case MapBitType::EmptyBit:
-					screen->printout('~', Vec{x,y});
+					screen->printout('~', coord);
 					break;
 				default:
-					screen->printout('X', Vec{x,y});
+					screen->printout('X', coord);
 					break;
 			}
 			x++;
@@ -133,6 +144,10 @@ Game::place_food()
 	while(true)
 	{
 		food->init();
+
+		if (food->coord.x >= game_map->size.x ||
+			food->coord.y >= game_map->size.y)
+			continue;
 
 		for(auto coord : snake->bmap)
 		{
@@ -156,7 +171,6 @@ Game::run()
 		screen->sleep(120);
 		draw_map();
 		move_snake();
-
 		switch (check_collision())
 		{
 			case FoodCollision:
